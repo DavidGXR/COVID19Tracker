@@ -15,11 +15,9 @@ struct DataManager {
     
     var delegate:DataManagerDelegate?
     
-    let api = "https://disease.sh/v3/covid-19/countries/US?strict=true"
-    
-    func performRequest() {
+    func performRequest(country: String) {
         // Create URL
-        if let url = URL(string: api) {
+        if let url = URL(string: "https://disease.sh/v3/covid-19/countries/\(country)?strict=true") {
             // Create browser
             let session = URLSession(configuration: .default)
             
@@ -55,7 +53,7 @@ struct DataManager {
             let deaths          = decodedData.deaths
             let todayDeaths     = decodedData.todayDeaths
             let flagURL         = decodedData.countryInfo.flag
-            //print("Active: \(active)")
+         
             let covidData       = DataModel(active: active, todayCases: todayCases, todayRecovered: todayRecovered, deaths: deaths, todayDeaths: todayDeaths, flagURL: flagURL)
             return covidData
             

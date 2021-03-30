@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import CoreLocation
 
 class ViewController: UIViewController {
 
@@ -16,6 +17,7 @@ class ViewController: UIViewController {
     
     private var covidData = [DataModel(active: 0, todayCases: 0, todayRecovered: 0, deaths: 0, todayDeaths: 0, flagURL: "")]
     private var dataManager = DataManager()
+    private let locationManager = CLLocationManager()
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -24,9 +26,12 @@ class ViewController: UIViewController {
     
         tableView.separatorStyle = .none
         tableView.allowsSelection = false
+        tableView.rowHeight = 120
         countryFlagImageView.layer.cornerRadius = countryFlagImageView.frame.height/2
         searchBar.backgroundImage = UIImage()
         searchBar.backgroundColor = .none
+        dataManager.delegate = self
+        setupLocationManager()
         
         //tableView.translatesAutoresizingMaskIntoConstraints = false
 //        let window = UIApplication.shared.windows[0]
@@ -36,17 +41,10 @@ class ViewController: UIViewController {
 //        let screenSizeWithoutSafeArea = (UIScreen.main.bounds.height - safeAreaSize)
 //        let tableViewSize = screenSizeWithoutSafeArea - 259 //231
 //        tableView.heightAnchor.constraint(equalToConstant: 380).isActive = true
-        
-        tableView.rowHeight = 120
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        dataManager.delegate = self
-        dataManager.performRequest()
     }
     
     @IBAction func locationButton(_ sender: UIButton) {
-        dataManager.performRequest()
+        locationManager.requestLocation()
     }
     
     
@@ -82,15 +80,71 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
     }
 }
 
+extension ViewController:CLLocationManagerDelegate {
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if let location = locations.last {
+            getLocationCountryName(lat: location.coordinate.latitude, long: location.coordinate.longitude)
+        }
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        showAlertBox(description: "Cannot get the current location")
+    }
+    
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        switch locationManager.authorizationStatus {
+        case .authorizedWhenInUse: locationManager.requestLocation()
+        case .denied: covidData = [DataModel(active: 0, todayCases: 0, todayRecovered: 0, deaths: 0, todayDeaths: 0, flagURL: "")]
+        case .restricted: covidData = [DataModel(active: 0, todayCases: 0, todayRecovered: 0, deaths: 0, todayDeaths: 0, flagURL: "")]
+        case .authorizedAlways: locationManager.requestLocation()
+        case .notDetermined: locationManager.requestWhenInUseAuthorization()
+        default: covidData = [DataModel(active: 0, todayCases: 0, todayRecovered: 0, deaths: 0, todayDeaths: 0, flagURL: "")]
+        }
+    }
+    
+    func setupLocationManager() {
+        if CLLocationManager.locationServicesEnabled() {
+            locationManager.delegate = self
+            locationManager.requestWhenInUseAuthorization()
+            locationManager.requestLocation()
+        } else {
+            showAlertBox(description: "Please enable location service")
+        }
+
+    }
+    
+    func getLocationCountryName(lat: CLLocationDegrees, long: CLLocationDegrees) {
+        let geoCoder = CLGeocoder()
+        let location = CLLocation(latitude: lat, longitude: long)
+        geoCoder.reverseGeocodeLocation(location) { (placemarks, error) in
+            if let error = error {
+                self.showAlertBox(description: error.localizedDescription)
+            }
+            
+            guard let placemark = placemarks?.first else {return}
+            if let country = placemark.country {
+                self.dataManager.performRequest(country: country)
+            } else {
+                self.showAlertBox(description: "Cannot get country name")
+            }
+        }
+    }
+    
+    func showAlertBox(description:String) {
+        let controllerBox = UIAlertController(title: "Oops", message: description, preferredStyle: .alert)
+        controllerBox.addAction(UIAlertAction(title: "Ok", style: .cancel, handler: nil))
+        self.present(controllerBox, animated: true, completion: nil)
+    }
+}
+
 extension ViewController:DataManagerDelegate {
     func didUpdateCovidData(data: DataModel) {
-        covidData.removeAll()
+        covidData.removeFirst()
         self.covidData.append(data)
         DispatchQueue.main.async {
             self.tableView.reloadData()
         }
     }
-    
 }
 
 
