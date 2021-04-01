@@ -11,8 +11,9 @@ protocol DataManagerDelegate {
     func didUpdateCovidData (data: DataModel)
 }
 
-struct DataManager {
+class DataManager: NSObject {
     
+    @objc dynamic var error:String?
     var delegate:DataManagerDelegate?
     
     func performRequest(country: String) {
@@ -29,7 +30,7 @@ struct DataManager {
                     return
                 } else {
                     if let safeData = data {
-                        if let actualData = paraseJSON(data: safeData) {
+                        if let actualData = self.paraseJSON(data: safeData) {
                             self.delegate?.didUpdateCovidData(data: actualData)
                             //print("This is: \(actualData.active)")
                         }
@@ -58,7 +59,7 @@ struct DataManager {
             return covidData
             
         } catch {
-            print(error)
+            self.error = "Invalid country name, try using an abbreviation"
             return nil
         }
     }
